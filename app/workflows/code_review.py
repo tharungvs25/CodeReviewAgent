@@ -84,6 +84,8 @@ def register_code_review_tools():
         issues = state.get("issues", {})
         complexity = state.get("complexity", {})
         threshold = state.get("threshold", 0.8)
+        loop_count = state.get("_loop_count", 0)
+        MAX_LOOPS = 3  # Prevent infinite loops
         
         # Calculate quality score (simple heuristic)
         total_issues = sum(issues.values())
@@ -97,11 +99,16 @@ def register_code_review_tools():
         
         state["quality_score"] = max(0.0, min(1.0, base_score))
         
-        # Loop if quality is below threshold (set _next_node to loop back)
-        if state["quality_score"] < threshold:
-            # In a real system, this would loop back to improvements
-            # For now, we just mark it and end
-            pass
+        # Loop back to suggestions if quality is below threshold
+        if state["quality_score"] < threshold and loop_count < MAX_LOOPS:
+            state["_loop_count"] = loop_count + 1
+            state["_next_node"] = "suggestions"  # Loop back to suggestions
+        else:
+            # Workflow complete
+            if loop_count >= MAX_LOOPS:
+                state["_loop_message"] = f"Reached max loops ({MAX_LOOPS}), stopping."
+            else:
+                state["_loop_message"] = "Quality threshold met!"
         
         return state
     
