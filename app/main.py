@@ -10,7 +10,7 @@ from models.graph_models import (
     GraphDefinition,
 )
 from models.run_models import RunRecord
-from storage.memory import GRAPHS, RUNS
+from storage.sqlite_store import init_db, save_graph, get_graph, get_run
 from engine.runner import run_graph
 from workflows.code_review import register_code_review_tools, create_code_review_graph
 
@@ -21,16 +21,16 @@ app = FastAPI(title="Minimal Workflow / Graph Engine")
 def startup_event():
     from workflows.code_review import register_code_review_tools, create_code_review_graph
 
+    init_db()
+
     # Register tools
     register_code_review_tools()
 
-    # Create the graph with ID = "code_review"
+    # Create the graph with ID = "code_review" and persist it
     graph = create_code_review_graph()
+    save_graph(graph)
 
-    # Store in in-memory storage
-    GRAPHS[graph.id] = graph
-
-    print("Loaded graph:", graph.id)  # should print: "Loaded graph: code_review"
+    print("Loaded graph:", graph.id)
 
 
 # --- Graph Endpoints ---
@@ -44,16 +44,16 @@ def create_graph(req: GraphCreateRequest):
         start_node=req.start_node,
     )
 
-    if graph.id in GRAPHS:
+    if get_graph(graph.id):
         raise HTTPException(status_code=400, detail="Graph with this id already exists")
 
-    GRAPHS[graph.id] = graph
+    save_graph(graph)
     return GraphCreateResponse(graph_id=graph.id)
 
 
 @app.post("/graph/run", response_model=GraphRunResponse)
 def run_graph_endpoint(req: GraphRunRequest):
-    graph = GRAPHS.get(req.graph_id)
+    graph = get_graph(req.graph_id)
     if not graph:
         raise HTTPException(status_code=404, detail="Graph not found")
 
@@ -63,7 +63,7 @@ def run_graph_endpoint(req: GraphRunRequest):
 
 @app.get("/graph/state/{run_id}", response_model=RunRecord)
 def get_run_state(run_id: str):
-    run = RUNS.get(run_id)
+    run = get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     return run

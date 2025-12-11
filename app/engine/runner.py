@@ -2,7 +2,7 @@
 from typing import Dict, Any, Tuple
 from models.graph_models import GraphDefinition
 from models.run_models import RunRecord, RunStatus, new_run_id
-from storage.memory import RUNS
+from storage.sqlite_store import save_run
 from engine.graph import GraphEngine
 
 
@@ -21,7 +21,7 @@ def run_graph(graph: GraphDefinition, initial_state: Dict[str, Any]) -> Tuple[Ru
         status=RunStatus.RUNNING,
         log=[]
     )
-    RUNS[run_id] = run
+    save_run(run)
 
     steps = 0
 
@@ -60,5 +60,5 @@ def run_graph(graph: GraphDefinition, initial_state: Dict[str, Any]) -> Tuple[Ru
         run.error = str(exc)
         run.log.append(f"Error: {exc}")
 
-    RUNS[run_id] = run
+    save_run(run)
     return run, run.state, run.log
